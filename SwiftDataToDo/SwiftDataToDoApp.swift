@@ -10,10 +10,13 @@ import SwiftData
 
 @main
 struct SwiftDataToDoApp: App {
+    
+    @AppStorage("isFirstTimeLaunch") private var isFirstTimeLaunch: Bool = true
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .modelContainer(for: Item.self)
         }
+        .modelContainer(ItemsContainer.create(shouldCreateDefaulta: &isFirstTimeLaunch))
     }
 }

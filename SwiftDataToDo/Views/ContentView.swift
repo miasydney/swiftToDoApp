@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 
+
 enum SortOption: String, CaseIterable {
     case title
     case date
@@ -38,6 +39,8 @@ struct ContentView: View {
     @State private var showCreateToDo = false
     @State private var toDoToEdit: Item?
     
+    @State private var isImageViewerPresented = false
+    
     @State private var selectedSortOption = SortOption.allCases.first!
     
     var filteredItems: [Item] {
@@ -49,7 +52,7 @@ struct ContentView: View {
         let filteredItems = items.compactMap { item in
             
             let titleContainsQuery = item.title.range(of: searchQuery,
-                                                       options: .caseInsensitive) != nil
+                                                      options: .caseInsensitive) != nil
             
             let categoryTitleContainsQuery = item.category?.title.range(of: searchQuery,
                                                                         options: .caseInsensitive) != nil
@@ -65,53 +68,82 @@ struct ContentView: View {
         NavigationStack {
             List {
                 ForEach(filteredItems) { item in
-                    
-                    HStack {
-                        VStack(alignment: .leading) {
-                            
-                            if item.isCritical {
-                                Image(systemName: "exclamationmark.3")
-                                    .symbolVariant(.fill)
-                                    .foregroundColor(.red)
+                    VStack {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                
+                                if item.isCritical {
+                                    Image(systemName: "exclamationmark.3")
+                                        .symbolVariant(.fill)
+                                        .foregroundColor(.red)
+                                        .font(.largeTitle)
+                                        .bold()
+                                }
+                                
+                                Text(item.title)
                                     .font(.largeTitle)
                                     .bold()
+                                
+                                Text("\(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .shortened))")
+                                    .font(.callout)
+                                
+                                if let category = item.category {
+                                    Text(category.title)
+                                        .foregroundStyle(Color.blue)
+                                        .bold()
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 8)
+                                        .background(Color.blue.opacity(0.1),
+                                                    in: RoundedRectangle(cornerRadius: 8,
+                                                                         style: .continuous))
+                                }
+                                
                             }
                             
-                            Text(item.title)
-                                .font(.largeTitle)
-                                .bold()
                             
-                            Text("\(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .shortened))")
-                                .font(.callout)
+                            Spacer()
                             
-                            if let category = item.category {
-                                Text(category.title)
-                                     .foregroundStyle(Color.blue)
-                                     .bold()
-                                     .padding(.horizontal)
-                                     .padding(.vertical, 8)
-                                     .background(Color.blue.opacity(0.1),
-                                                 in: RoundedRectangle(cornerRadius: 8,
-                                                                      style: .continuous))
-                             }
-                            
-                        }
-                        
-                        
-                        Spacer()
-                        
-                        Button {
-                            withAnimation {
-                                item.isCompleted.toggle()
+                            Button {
+                                withAnimation {
+                                    item.isCompleted.toggle()
+                                }
+                            } label: {
+                                
+                                Image(systemName: "checkmark")
+                                    .symbolVariant(.circle.fill)
+                                    .foregroundStyle(item.isCompleted ? .green : .gray)
+                                    .font(.largeTitle)
                             }
-                        } label: {
-                            
-                            Image(systemName: "checkmark")
-                                .symbolVariant(.circle.fill)
-                                .foregroundStyle(item.isCompleted ? .green : .gray)
-                                .font(.largeTitle)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                            if let selectedPhotoData = item.image,
+                               let uiImage = UIImage(data: selectedPhotoData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity, maxHeight: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10,
+                                                                style: .continuous))
+                                    .onTapGesture {
+                                        isImageViewerPresented = true
+                                    }
+                                    .fullScreenCover(isPresented: $isImageViewerPresented) {
+                                        SwiftUIImageViewer(image: Image(uiImage: uiImage))
+                                            .overlay(alignment: .topTrailing) {
+                                                Button {
+                                                    isImageViewerPresented = false
+                                                } label: {
+                                                    Image(systemName: "xmark")
+                                                        .font(.headline)
+                                                }
+                                                .buttonStyle(.bordered)
+                                                .clipShape(Circle())
+                                                .tint(.purple)
+                                                .padding()
+                                            }
+                                    }
+                            }
+                        
                     }
                     .swipeActions {
                         
@@ -136,7 +168,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("My To Do List")
-            .animation(.easeIn, value: filteredItems)
+            .animation(/*@START_MENU_TOKEN@*/.easeIn/*@END_MENU_TOKEN@*/, value: filteredItems)
             .searchable(text: $searchQuery,
                         prompt: "Search for a to do or a category")
             .overlay {
@@ -168,26 +200,34 @@ struct ContentView: View {
             })
             .toolbar {
                 
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        showCreateCategory.toggle()
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
                 
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    
                     Menu {
                         Picker("", selection: $selectedSortOption) {
                             ForEach(SortOption.allCases,
                                     id: \.rawValue) { option in
                                 Label(option.rawValue.capitalized,
                                       systemImage: option.systemImage)
-                                    .tag(option)
+                                .tag(option)
                             }
                         }
                         .labelsHidden()
-
+                        
                     } label: {
                         Image(systemName: "ellipsis")
                             .symbolVariant(.circle)
                     }
-
+                    
                 }
-
+                
             }
             .safeAreaInset(edge: .bottom,
                            alignment: .leading) {
@@ -231,9 +271,7 @@ private extension [Item] {
                 return firstItemTitle < secondItemTitle
             })
         }
-        
     }
-    
 }
 
 // Xcode 15 Beta 2 has a previews bug so this is why we're commenting this out...

@@ -22,6 +22,17 @@ class Category {
     
 }
 
+extension Category {
+    
+    static var defaults: [Category] {
+        [
+            .init(title: "Study"),
+            .init(title: "Routine"),
+            .init(title: "Family")
+        ]
+    }
+}
+
 struct CreateCategoryView: View {
     
     @Environment(\.dismiss) private var dismiss
