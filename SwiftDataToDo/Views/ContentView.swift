@@ -8,6 +8,26 @@
 import SwiftUI
 import SwiftData
 
+enum SortOption: String, CaseIterable {
+    case title
+    case date
+    case category
+}
+
+extension SortOption {
+    
+    var systemImage: String {
+        switch self {
+        case .title:
+            "textformat.size.larger"
+        case .date:
+            "calendar"
+        case .category:
+            "folder"
+        }
+    }
+}
+
 struct ContentView: View {
     
     @Environment(\.modelContext) private var modelContext
@@ -18,24 +38,27 @@ struct ContentView: View {
     @State private var showCreateToDo = false
     @State private var toDoToEdit: Item?
     
+    @State private var selectedSortOption = SortOption.allCases.first!
+    
     var filteredItems: [Item] {
         
         if searchQuery.isEmpty {
-            return items
+            return items.sort(on: selectedSortOption)
         }
         
         let filteredItems = items.compactMap { item in
             
             let titleContainsQuery = item.title.range(of: searchQuery,
-                                                        options: .caseInsensitive) != nil
+                                                       options: .caseInsensitive) != nil
             
             let categoryTitleContainsQuery = item.category?.title.range(of: searchQuery,
-                                                                       options: .caseInsensitive) != nil
+                                                                        options: .caseInsensitive) != nil
             
             return (titleContainsQuery || categoryTitleContainsQuery) ? item : nil
         }
         
-        return filteredItems
+        return filteredItems.sort(on: selectedSortOption)
+        
     }
     
     var body: some View {
@@ -113,6 +136,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("My To Do List")
+            .animation(.easeIn, value: filteredItems)
             .searchable(text: $searchQuery,
                         prompt: "Search for a to do or a category")
             .overlay {
@@ -143,11 +167,27 @@ struct ContentView: View {
                 }
             })
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("New Category") {
-                        showCreateCategory.toggle()
+                
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                
+                    Menu {
+                        Picker("", selection: $selectedSortOption) {
+                            ForEach(SortOption.allCases,
+                                    id: \.rawValue) { option in
+                                Label(option.rawValue.capitalized,
+                                      systemImage: option.systemImage)
+                                    .tag(option)
+                            }
+                        }
+                        .labelsHidden()
+
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .symbolVariant(.circle)
                     }
+
                 }
+
             }
             .safeAreaInset(edge: .bottom,
                            alignment: .leading) {
@@ -176,7 +216,29 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+private extension [Item] {
+    
+    func sort(on option: SortOption) -> [Item] {
+        switch option {
+        case .title:
+            self.sorted(by: { $0.title < $1.title })
+        case .date:
+            self.sorted(by: { $0.timestamp < $1.timestamp })
+        case .category:
+            self.sorted(by: {
+                guard let firstItemTitle = $0.category?.title,
+                      let secondItemTitle = $1.category?.title else { return false }
+                return firstItemTitle < secondItemTitle
+            })
+        }
+        
+    }
+    
 }
+
+// Xcode 15 Beta 2 has a previews bug so this is why we're commenting this out...
+// Ref: https://mastodon.social/@denisdepalatis/110561280521551715
+//#Preview {
+//    ContentView()
+//        .modelContainer(for: Item.self, inMemory: true)
+//}
