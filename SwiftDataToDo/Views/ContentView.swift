@@ -13,14 +13,35 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
     
+    @State private var searchQuery = ""
     @State private var showCreateCategory = false
     @State private var showCreateToDo = false
     @State private var toDoToEdit: Item?
     
+    var filteredItems: [Item] {
+        
+        if searchQuery.isEmpty {
+            return items
+        }
+        
+        let filteredItems = items.compactMap { item in
+            
+            let titleContainsQuery = item.title.range(of: searchQuery,
+                                                        options: .caseInsensitive) != nil
+            
+            let categoryTitleContainsQuery = item.category?.title.range(of: searchQuery,
+                                                                       options: .caseInsensitive) != nil
+            
+            return (titleContainsQuery || categoryTitleContainsQuery) ? item : nil
+        }
+        
+        return filteredItems
+    }
+    
     var body: some View {
         NavigationStack {
             List {
-                ForEach(items) { item in
+                ForEach(filteredItems) { item in
                     
                     HStack {
                         VStack(alignment: .leading) {
@@ -92,6 +113,13 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("My To Do List")
+            .searchable(text: $searchQuery,
+                        prompt: "Search for a to do or a category")
+            .overlay {
+                if filteredItems.isEmpty {
+                    ContentUnavailableView.search
+                }
+            }
             .sheet(item: $toDoToEdit,
                    onDismiss: {
                 toDoToEdit = nil
